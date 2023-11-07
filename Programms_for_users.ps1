@@ -495,7 +495,7 @@ $button7.Name = "button7"
 $button7.Size = New-Object System.Drawing.Size(40, 38)
 $button7.Image = [System.Drawing.SystemIcons]::Information
 $button7.UseVisualStyleBackColor = $true
-$button7.add_Click({form})
+$button7.add_Click({About})
 
 function About{
     
