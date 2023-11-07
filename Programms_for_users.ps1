@@ -4,6 +4,7 @@
   #Start-Process powershell -Verb runAs -ArgumentList $arguments
   #Break
 #}
+Write-Host "1"
 [reflection.assembly]::loadwithpartialname("System.Windows.Forms") | Out-Null
 [reflection.assembly]::loadwithpartialname("System.Drawing") | Out-Null
 #Не трогать, оно работает и слава богу
