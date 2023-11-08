@@ -7,10 +7,10 @@
 #Путь до скрипта
 $scriptPath = $MyInvocation.MyCommand.Definition
 $player = New-Object System.Media.SoundPlayer
-$SoundUpdate = "$PSScriptRoot\Sounds\Update.wav"
 
 function update {
     # Параметры
+    $SoundUpdate = "$PSScriptRoot\Sounds\Update.wav"
     $GitHubUser = "HotFies"
     $GitHubRepo = "ActiveLocal"
     $FileName = "ActiveLocal.ps1"
@@ -48,17 +48,20 @@ function update {
 
     # Проверка существования файла LatestUpdate.txt и выполнение обновления
     if (-not (Test-Path $UpdateDateFile)) {
-        $player.Play($SoundUpdate)
-        Write-Host "Скачиваю обновление"
+        $player.SoundLocation = $SoundUpdate
+        $player.Play()
+        Write-Host "Скачано 10%"
         # Скачивание файла ActiveLocal.ps1
         Update-File $LocalFilePath $FileName
         # Получение списка файлов из папки Sounds на GitHub
         $SoundsContents = Get-GitHubDirectoryContents $GitHubUser $GitHubRepo "Sounds"
+        Write-Host "Скачано 30%"
         # Скачивание и обновление файлов из папки Sounds
         foreach ($file in $SoundsContents) {
             $localFilePath = Join-Path $SoundsLocalPath $file.name
             Update-File $localFilePath $file.path
         }
+        Write-Host "Скачано 70%"
         # Получение списка файлов из папки Icons на GitHub
         $IconsContents = Get-GitHubDirectoryContents $GitHubUser $GitHubRepo "Icons"
         # Скачивание и обновление файлов из папки Icons
@@ -70,9 +73,10 @@ function update {
         New-Item -ItemType file -Path $UpdateDateFile -Force
         $latestCommitDate = Get-LatestCommitDate $GitHubUser $GitHubRepo $FileName
         Set-Content -Path $UpdateDateFile -Value $latestCommitDate
+        Write-Host "Скачано 95%"
         # Обновление даты последней модификации файла ActiveLocal.ps1 на дату последнего commit'a
         (Get-Item $LocalFilePath).LastWriteTime = $latestCommitDate
-        Write-Host "Файл LatestUpdate.txt создан."
+        Write-Host "Обновление загружено"
         Start-Process powershell.exe -ArgumentList "-File `"$scriptPath`"" -NoNewWindow
         Break
     } else {
@@ -82,16 +86,20 @@ function update {
         $latestCommitDate = Get-LatestCommitDate $GitHubUser $GitHubRepo $FileName
         # Сравнение дат
         if ($latestCommitDate -gt [System.DateTime]::Parse($localLatestUpdate)) {
-            $player.Play($SoundUpdate)
+            $player.SoundLocation = $SoundUpdate
+            $player.Play()
+            Write-Host "Скачано 10%"
             # Скачивание файла ActiveLocal.ps1
             Update-File $LocalFilePath $FileName
             # Получение списка файлов из папки Sounds на GitHub
             $SoundsContents = Get-GitHubDirectoryContents $GitHubUser $GitHubRepo "Sounds"
+            Write-Host "Скачано 30%"
             # Скачивание и обновление файлов из папки Sounds
             foreach ($file in $SoundsContents) {
                 $localFilePath = Join-Path $SoundsLocalPath $file.name
                 Update-File $localFilePath $file.path
             }
+            Write-Host "Скачано 70%"
             # Получение списка файлов из папки Icons на GitHub
             $IconsContents = Get-GitHubDirectoryContents $GitHubUser $GitHubRepo "Icons"
             # Скачивание и обновление файлов из папки Icons
@@ -99,15 +107,16 @@ function update {
                 $localFilePath = Join-Path $IconsLocalPath $file.name
                 Update-File $localFilePath $file.path
             }
+            Write-Host "Скачано 95%"
             # Обновление даты последней модификации файла ActiveLocal.ps1 на дату последнего commit'a
             (Get-Item $LocalFilePath).LastWriteTime = $latestCommitDate
             # Запись новой даты обновления в файл LatestUpdate.txt
             Set-Content -Path $UpdateDateFile -Value $latestCommitDate
-            Write-Host "Файл обновлен и дата последнего обновления записана в файл LatestUpdate.txt."
+            Write-Host "Обновление загружено"
             Start-Process powershell.exe -ArgumentList "-File `"$scriptPath`"" -NoNewWindow
             Break
         } else {
-            Write-Host "Обновления все уже установлены."
+            Write-Host "Обновления все уже установлены"
         }
     }
 }
