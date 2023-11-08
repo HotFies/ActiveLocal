@@ -6,6 +6,8 @@
 }
 #Путь до скрипта
 $scriptPath = $MyInvocation.MyCommand.Definition
+$player = New-Object System.Media.SoundPlayer
+$SoundUpdate = "$PSScriptRoot\Sounds\Update.wav"
 
 function update {
     # Параметры
@@ -46,6 +48,7 @@ function update {
 
     # Проверка существования файла LatestUpdate.txt и выполнение обновления
     if (-not (Test-Path $UpdateDateFile)) {
+        $player.Play($SoundUpdate)
         Write-Host "Скачиваю обновление"
         # Скачивание файла ActiveLocal.ps1
         Update-File $LocalFilePath $FileName
@@ -77,9 +80,9 @@ function update {
         $localLatestUpdate = Get-Content $UpdateDateFile
         # Получение даты последнего коммита файла ActiveLocal.ps1 на GitHub
         $latestCommitDate = Get-LatestCommitDate $GitHubUser $GitHubRepo $FileName
-
         # Сравнение дат
         if ($latestCommitDate -gt [System.DateTime]::Parse($localLatestUpdate)) {
+            $player.Play($SoundUpdate)
             # Скачивание файла ActiveLocal.ps1
             Update-File $LocalFilePath $FileName
             # Получение списка файлов из папки Sounds на GitHub
@@ -114,7 +117,6 @@ Add-Type -AssemblyName System.Windows.Forms
 [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
 
 #Основные переменные
-$player = New-Object System.Media.SoundPlayer
 $global:loadingForm = $null
 $loadimg = "$PSScriptRoot\Icons\loading.png"
 $SoundDone = "$PSScriptRoot\Sounds\Done.wav"
