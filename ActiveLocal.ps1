@@ -7,12 +7,12 @@
 #Путь до скрипта
 $scriptPath = $MyInvocation.MyCommand.Definition
 $player = New-Object System.Media.SoundPlayer
+$GitHubUser = "HotFies"
+$GitHubRepo = "ActiveLocal"
 
 function update {
     # Параметры
     $SoundUpdate = "$PSScriptRoot\Sounds\Update.wav"
-    $GitHubUser = "HotFies"
-    $GitHubRepo = "ActiveLocal"
     $FileName = "ActiveLocal.ps1"
     $LocalFilePath = "$PSScriptRoot\ActiveLocal.ps1"
     $UpdateDateFile = "$PSScriptRoot\LatestUpdate.txt"
@@ -116,7 +116,7 @@ function update {
             Start-Process powershell.exe -ArgumentList "-File `"$scriptPath`"" -NoNewWindow
             Break
         } else {
-            Write-Host "Обновления все уже установлены"
+            Write-Host "Обновления все установлены"
         }
     }
 }
@@ -124,6 +124,52 @@ update
 
 Add-Type -AssemblyName System.Windows.Forms
 [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
+
+function checkkey{
+# Получение ключа из файла Key.txt на GitHub
+$FileName = "Key.txt"
+
+# Скачивание и чтение файла
+$KeyContent = (Invoke-RestMethod -Uri "https://raw.githubusercontent.com/$GitHubUser/$GitHubRepo/master/$FileName").ToString()
+
+# Создание и настройка формы
+$formcheck = New-Object System.Windows.Forms.Form
+$formcheck.Text = "Введите ключ"
+$formcheck.Size = New-Object System.Drawing.Size(300, 150)
+$formcheck.StartPosition = "CenterScreen"
+
+$textBoxcheck = New-Object System.Windows.Forms.TextBox
+$textBoxcheck.Location = New-Object System.Drawing.Point(30, 30)
+$textBoxcheck.Size = New-Object System.Drawing.Size(240, 20)
+$formcheck.Controls.Add($textBoxcheck)
+
+$buttoncheck = New-Object System.Windows.Forms.Button
+$buttoncheck.Location = New-Object System.Drawing.Point(100, 60)
+$buttoncheck.Size = New-Object System.Drawing.Size(100, 30)
+$buttoncheck.Text = "Проверить"
+$buttoncheck.Add_Click({
+    if ($textBox.Text -eq $script:KeyContent) {
+        # Получение директории, в которой находится скрипт
+        $ScriptDirectory = [System.IO.Path]::GetDirectoryName($MyInvocation.MyCommand.Path)
+
+        # Создание пути к файлу CommitKey.txt в директории скрипта
+        $CommitKeyPath = Join-Path -Path $ScriptDirectory -ChildPath "CommitKey.txt"
+        
+        Set-Content -Path $CommitKeyPath -Value $textBox.Text
+
+        # Закрытие формы
+        $formcheck.Close()
+    }
+    else {
+        [System.Windows.Forms.MessageBox]::Show("Введен неправильный ключ", "Ошибка")
+        exit
+    }
+})
+$formcheck.Controls.Add($buttoncheck)
+
+$formcheck.ShowDialog()
+}
+checkkey
 
 #Основные переменные
 $global:loadingForm = $null
