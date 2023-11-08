@@ -126,48 +126,79 @@ Add-Type -AssemblyName System.Windows.Forms
 [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
 
 function checkkey{
-# Получение ключа из файла Key.txt на GitHub
-$FileName = "Key.txt"
+    $TaskName = "ActiveLocal"
+    $CommitKeyPath = "$PSScriptRoot\CommitKey.txt"
+    # Проверяем существование задачи
+    $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    if(!($task -ne $null)){
+        # Создаем действие, которое выполнит удаление файла в PowerShell
+        Write-Host "1"
+        $Action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-Command Remove-Item -Path $CommitKeyPath -ErrorAction SilentlyContinue"
 
-# Скачивание и чтение файла
-$KeyContent = (Invoke-RestMethod -Uri "https://raw.githubusercontent.com/$GitHubUser/$GitHubRepo/master/$FileName").ToString()
+        # Создаем триггер, который активируется каждый день в 6 утра
+        $Trigger = New-ScheduledTaskTrigger -At 6am -Daily
 
-# Создание и настройка формы
-$formcheck = New-Object System.Windows.Forms.Form
-$formcheck.Text = "Введите ключ"
-$formcheck.Size = New-Object System.Drawing.Size(300, 150)
-$formcheck.StartPosition = "CenterScreen"
+        # Устанавливаем пользователя задачи
+        $User = "NT AUTHORITY\SYSTEM"
 
-$textBoxcheck = New-Object System.Windows.Forms.TextBox
-$textBoxcheck.Location = New-Object System.Drawing.Point(30, 30)
-$textBoxcheck.Size = New-Object System.Drawing.Size(240, 20)
-$formcheck.Controls.Add($textBoxcheck)
+        # Если задача пропущена, выполнить как можно скорее
+        $Settings = New-ScheduledTaskSettingsSet -StartWhenAvailable
 
-$buttoncheck = New-Object System.Windows.Forms.Button
-$buttoncheck.Location = New-Object System.Drawing.Point(100, 60)
-$buttoncheck.Size = New-Object System.Drawing.Size(100, 30)
-$buttoncheck.Text = "Проверить"
-$buttoncheck.Add_Click({
-    if ($textBox.Text -eq $script:KeyContent) {
-        # Получение директории, в которой находится скрипт
-        $ScriptDirectory = [System.IO.Path]::GetDirectoryName($MyInvocation.MyCommand.Path)
+        # Описание задачи
+        $Description = "ActiveLocal - программа для удаленного управления"
 
-        # Создание пути к файлу CommitKey.txt в директории скрипта
-        $CommitKeyPath = Join-Path -Path $ScriptDirectory -ChildPath "CommitKey.txt"
-        
-        Set-Content -Path $CommitKeyPath -Value $textBox.Text
-
-        # Закрытие формы
-        $formcheck.Close()
+        # Регистрируем задачу
+        Register-ScheduledTask -TaskName $TaskName -Description $Description -Trigger $Trigger -User $User -Action $Action -Settings $Settings -RunLevel Highest –Force
     }
-    else {
-        [System.Windows.Forms.MessageBox]::Show("Введен неправильный ключ", "Ошибка")
-        exit
-    }
-})
-$formcheck.Controls.Add($buttoncheck)
+        function checkform{
+        # Создание и настройка формы
+        $formcheck = New-Object System.Windows.Forms.Form
+        $formcheck.Text = "Введите ключ"
+        $formcheck.Size = New-Object System.Drawing.Size(300, 150)
+        $formcheck.StartPosition = "CenterScreen"
 
-$formcheck.ShowDialog()
+        $textBoxcheck = New-Object System.Windows.Forms.TextBox
+        $textBoxcheck.Location = New-Object System.Drawing.Point(30, 30)
+        $textBoxcheck.Size = New-Object System.Drawing.Size(240, 20)
+        $formcheck.Controls.Add($textBoxcheck)
+
+        $buttoncheck = New-Object System.Windows.Forms.Button
+        $buttoncheck.Location = New-Object System.Drawing.Point(100, 60)
+        $buttoncheck.Size = New-Object System.Drawing.Size(100, 30)
+        $buttoncheck.Text = "Проверить"
+        $buttoncheck.Add_Click({
+            if ($textBoxcheck.Text -eq $KeyContent) {
+                # Сохраняем ключ в файл CommitKey.txt
+                Set-Content -Path $CommitKeyPath -Value $textBoxcheck.Text
+
+                # Закрываем форму
+                $formcheck.Close()
+            }
+            else {
+                [System.Windows.Forms.MessageBox]::Show("Введен неправильный ключ", "Ошибка")
+                [Environment]::Exit(1)
+            }
+        })
+        $formcheck.Controls.Add($buttoncheck)
+
+        $formcheck.ShowDialog()
+    }
+    # Получение ключа из файла Key.txt на GitHub
+    $FileName = "Key.txt"
+    $KeyContent = (Invoke-RestMethod -Uri "https://raw.githubusercontent.com/$GitHubUser/$GitHubRepo/master/$FileName").ToString()
+
+    if (Test-Path -Path $CommitKeyPath) {
+        # Файл CommitKey.txt существует, считываем его содержимое
+        $ExistingKey = Get-Content -Path $CommitKeyPath
+
+        if (!($ExistingKey -eq $KeyContent)) {
+            # Ключ не совпадает
+            checkform 
+        }
+    }
+    else{
+        checkform
+    }
 }
 checkkey
 
