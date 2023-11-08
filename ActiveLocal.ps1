@@ -42,6 +42,7 @@ if (-not (Test-Path $UpdateDateFile)) {
     (Get-Item $LocalFilePath).LastWriteTime = $latestCommitDate
     Write-Host "Файл LatestUpdate.txt создан."
     Start-Process powershell.exe -ArgumentList "-File `"$scriptPath`"" -Wait
+    Break
 }
 else {
     # Получение даты последнего обновления из файла LatestUpdate.txt
@@ -59,7 +60,8 @@ else {
         # Запись новой даты обновления в файл LatestUpdate.txt
         Set-Content -Path $UpdateDateFile -Value $latestCommitDate
         Write-Host "Файл обновлен и дата последнего обновления записана в файл LatestUpdate.txt."
-        Start-Process powershell.exe -ArgumentList "-File `"$scriptPath`"" -Wait
+        Start-Process powershell.exe -ArgumentList "-File `"$scriptPath`"" -NoNewWindow
+        Break
     }
     else {
         Write-Host "Обновлений нет. Используется прежний код."
