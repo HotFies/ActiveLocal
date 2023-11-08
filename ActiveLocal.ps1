@@ -7,66 +7,106 @@
 #Путь до скрипта
 $scriptPath = $MyInvocation.MyCommand.Definition
 
-function update{
-# Параметры
-$GitHubUser = "HotFies"
-$GitHubRepo = "ActiveLocal"
-$FileName = "ActiveLocal.ps1"
-$LocalFilePath = "$PSScriptRoot\ActiveLocal.ps1"
-$UpdateDateFile = "$PSScriptRoot\LatestUpdate.txt"
+function update {
+    # Параметры
+    $GitHubUser = "HotFies"
+    $GitHubRepo = "ActiveLocal"
+    $FileName = "ActiveLocal.ps1"
+    $LocalFilePath = "$PSScriptRoot\ActiveLocal.ps1"
+    $UpdateDateFile = "$PSScriptRoot\LatestUpdate.txt"
+    $SoundsLocalPath = Join-Path $PSScriptRoot "Sounds"
+    $IconsLocalPath = Join-Path $PSScriptRoot "Icons"
 
-# Функция для загрузки файла
-function DownloadFile($url, $outputPath) {
-    $webClient = New-Object System.Net.WebClient
-    $webClient.DownloadFile($url, $outputPath)
-}
+    # Функция для загрузки файла
+    function DownloadFile($url, $outputPath) {
+        $webClient = New-Object System.Net.WebClient
+        $webClient.DownloadFile($url, $outputPath)
+    }
 
-# Функция для получения даты последнего коммита файла на GitHub
-function Get-LatestCommitDate($user, $repo, $fileName) {
-    $url = "https://api.github.com/repos/$user/$repo/commits?path=$fileName"
-    $response = Invoke-RestMethod -Uri $url
-    return [System.DateTime]::Parse($response[0].commit.author.date)
-}
+    # Функция для получения даты последнего коммита файла на GitHub
+    function Get-LatestCommitDate($user, $repo, $fileName) {
+        $url = "https://api.github.com/repos/$user/$repo/commits?path=$fileName"
+        $response = Invoke-RestMethod -Uri $url
+        return [System.DateTime]::Parse($response[0].commit.author.date)
+    }
 
-# Проверка существования файла LatestUpdate.txt и выполнение обновления
-if (-not (Test-Path $UpdateDateFile)) {
-    Write-Host "Скачиваю обновление"
-    # Скачивание файла
-    $url = "https://raw.githubusercontent.com/$GitHubUser/$GitHubRepo/master/$FileName"
-    DownloadFile $url $LocalFilePath
-    # Создание файла LatestUpdate.txt и запись даты последнего обновления
-    New-Item -ItemType file -Path $UpdateDateFile -Force
-    $latestCommitDate = Get-LatestCommitDate $GitHubUser $GitHubRepo $FileName
-    Set-Content -Path $UpdateDateFile -Value $latestCommitDate
-    # Обновление даты последней модификации файла на дату последнего commit'a
-    (Get-Item $LocalFilePath).LastWriteTime = $latestCommitDate
-    Write-Host "Файл LatestUpdate.txt создан."
-    Start-Process powershell.exe -ArgumentList "-File `"$scriptPath`"" -Wait
-    Break
-}
-else {
-    # Получение даты последнего обновления из файла LatestUpdate.txt
-    $localLatestUpdate = Get-Content $UpdateDateFile
-    # Получение даты последнего коммита файла на GitHub
-    $latestCommitDate = Get-LatestCommitDate $GitHubUser $GitHubRepo $FileName
+    function Get-GitHubDirectoryContents($user, $repo, $path) {
+        $url = "https://api.github.com/repos/$user/$repo/contents/$path"
+        $response = Invoke-RestMethod -Uri $url
+        return $response | Where-Object { $_.type -eq "file" }
+    }
 
-    # Сравнение дат
-    if ($latestCommitDate -gt [System.DateTime]::Parse($localLatestUpdate)) {
-        # Скачивание файла
-        $url = "https://raw.githubusercontent.com/$GitHubUser/$GitHubRepo/master/$FileName"
-        DownloadFile $url $LocalFilePath
-        # Обновление даты последней модификации файла на дату последнего commit'a
-        (Get-Item $LocalFilePath).LastWriteTime = $latestCommitDate
-        # Запись новой даты обновления в файл LatestUpdate.txt
+    # Функция для скачивания и обновления файла
+    function Update-File($localPath, $githubPath) {
+        $url = "https://raw.githubusercontent.com/$GitHubUser/$GitHubRepo/master/$githubPath"
+        DownloadFile $url $localPath
+        $latestCommitDate = Get-LatestCommitDate $GitHubUser $GitHubRepo $githubPath
+        (Get-Item $localPath).LastWriteTime = $latestCommitDate
+    }
+
+    # Проверка существования файла LatestUpdate.txt и выполнение обновления
+    if (-not (Test-Path $UpdateDateFile)) {
+        Write-Host "Скачиваю обновление"
+        # Скачивание файла ActiveLocal.ps1
+        Update-File $LocalFilePath $FileName
+        # Получение списка файлов из папки Sounds на GitHub
+        $SoundsContents = Get-GitHubDirectoryContents $GitHubUser $GitHubRepo "Sounds"
+        # Скачивание и обновление файлов из папки Sounds
+        foreach ($file in $SoundsContents) {
+            $localFilePath = Join-Path $SoundsLocalPath $file.name
+            Update-File $localFilePath $file.path
+        }
+        # Получение списка файлов из папки Icons на GitHub
+        $IconsContents = Get-GitHubDirectoryContents $GitHubUser $GitHubRepo "Icons"
+        # Скачивание и обновление файлов из папки Icons
+        foreach ($file in $IconsContents) {
+            $localFilePath = Join-Path $IconsLocalPath $file.name
+            Update-File $localFilePath $file.path
+        }
+        # Создание файла LatestUpdate.txt и запись даты последнего обновления
+        New-Item -ItemType file -Path $UpdateDateFile -Force
+        $latestCommitDate = Get-LatestCommitDate $GitHubUser $GitHubRepo $FileName
         Set-Content -Path $UpdateDateFile -Value $latestCommitDate
-        Write-Host "Файл обновлен и дата последнего обновления записана в файл LatestUpdate.txt."
+        # Обновление даты последней модификации файла ActiveLocal.ps1 на дату последнего commit'a
+        (Get-Item $LocalFilePath).LastWriteTime = $latestCommitDate
+        Write-Host "Файл LatestUpdate.txt создан."
         Start-Process powershell.exe -ArgumentList "-File `"$scriptPath`"" -NoNewWindow
         Break
+    } else {
+        # Получение даты последнего обновления из файла LatestUpdate.txt
+        $localLatestUpdate = Get-Content $UpdateDateFile
+        # Получение даты последнего коммита файла ActiveLocal.ps1 на GitHub
+        $latestCommitDate = Get-LatestCommitDate $GitHubUser $GitHubRepo $FileName
+
+        # Сравнение дат
+        if ($latestCommitDate -gt [System.DateTime]::Parse($localLatestUpdate)) {
+            # Скачивание файла ActiveLocal.ps1
+            Update-File $LocalFilePath $FileName
+            # Получение списка файлов из папки Sounds на GitHub
+            $SoundsContents = Get-GitHubDirectoryContents $GitHubUser $GitHubRepo "Sounds"
+            # Скачивание и обновление файлов из папки Sounds
+            foreach ($file in $SoundsContents) {
+                $localFilePath = Join-Path $SoundsLocalPath $file.name
+                Update-File $localFilePath $file.path
+            }
+            # Получение списка файлов из папки Icons на GitHub
+            $IconsContents = Get-GitHubDirectoryContents $GitHubUser $GitHubRepo "Icons"
+            # Скачивание и обновление файлов из папки Icons
+            foreach ($file in $IconsContents) {
+                $localFilePath = Join-Path $IconsLocalPath $file.name
+                Update-File $localFilePath $file.path
+            }
+            # Обновление даты последней модификации файла ActiveLocal.ps1 на дату последнего commit'a
+            (Get-Item $LocalFilePath).LastWriteTime = $latestCommitDate
+            # Запись новой даты обновления в файл LatestUpdate.txt
+            Set-Content -Path $UpdateDateFile -Value $latestCommitDate
+            Write-Host "Файл обновлен и дата последнего обновления записана в файл LatestUpdate.txt."
+            Start-Process powershell.exe -ArgumentList "-File `"$scriptPath`"" -NoNewWindow
+            Break
+        } else {
+            Write-Host "Обновления все уже установлены."
+        }
     }
-    else {
-        Write-Host "Обновлений нет. Используется прежний код."
-    }
-}
 }
 update
 
