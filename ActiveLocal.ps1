@@ -181,6 +181,13 @@ function checkkey{
         })
         $formcheck.Controls.Add($buttoncheck)
 
+        $formcheck.Add_FormClosing({
+            if ($textBoxcheck.Text -ne $KeyContent) {
+                [System.Windows.Forms.MessageBox]::Show("Ключ не был введен", "Предупреждение")
+                [Environment]::Exit(1)
+            }
+        })
+
         $formcheck.ShowDialog()
     }
     # Получение ключа из файла Key.txt на GitHub
@@ -907,43 +914,35 @@ $buttonExecute.Add_Click({
                 $addAction = $selectedAddAction[0].ToString()
                 if ($addAction -eq "Объем памяти у пользователей"){
                         $scriptBlock = {
+                            $ExcludedUsers = @("TrustedInstaller", "СИСТЕМА", "SYSTEM", "LOCAL SERVICE", "MapsBroker", "NETWORK SERVICE", "TermServLicensing")
                             $UserInformation = @()
 
-                            $Users = Get-ChildItem -Path "C:\Users" -Directory
+                            $Quotas = Get-WmiObject -Class Win32_DiskQuota
+                            foreach ($Quota in $Quotas) {
+                                $UserName = $Quota.User -replace 'Win32_Account\.Domain=.*?,Name=', ''
+                                $QuotaUsed = $Quota.DiskSpaceUsed / 1MB
+                                $QuotaUsedFormatted = "{0:N2}" -f $QuotaUsed
 
-                            foreach ($User in $Users) {
-                                $UserInfo = New-Object PSObject -Property @{
-                                    UserName = $User.Name
-                                    Path = $User.FullName
-                                    TotalSize = 0
+                                if ($UserName -notin $ExcludedUsers) {
+                                    $UserInfo = New-Object PSObject -Property @{
+                                        UserName = $UserName
+                                        DiskQuotaUsed = $QuotaUsedFormatted
+                                    }
+
+                                    $UserInformation += $UserInfo
                                 }
-
-                                # Проверяем существование папки AppData
-                                $AppDataPath = Join-Path $User.FullName "AppData"
-                                if (Test-Path -Path $AppDataPath -PathType Container) {
-                                    $Acl = Get-Acl -Path $AppDataPath
-                                    $Acl.SetAccessRuleProtection($false, $true)
-                                    Set-Acl -Path $AppDataPath -AclObject $Acl
-                                }
-
-                                # Подсчет размера
-                                Get-ChildItem -Path $User.FullName -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
-                                    $UserInfo.TotalSize += [math]::Round(($_.Length / 1MB), 0) # Пересчитываем в мегабайты и округляем до целых чисел
-                                }
-
-                                $UserInformation += $UserInfo
                             }
 
-                            # Вывод информации
                             foreach ($Info in $UserInformation) {
-                                $test = "Пользователь: $($Info.UserName), Размер: $($Info.TotalSize) MB"
-                                $test
+                                "Пользователь: $($Info.UserName), Квота: $($Info.DiskQuotaUsed) MB"
                             }
                         }
                         try {
                             $listBoxOutput.Items.Clear()
-                            $diskInfo = Invoke-Command -ComputerName $ip -UseSSL -Credential $credential -SessionOption $sessionOption -ScriptBlock $scriptBlock -ErrorAction Stop | ForEach-Object {
-                            $listBoxOutput.Items.Add($_)}
+                            $diskQuotaInfo = Invoke-Command -ComputerName $ip -UseSSL -Credential $credential -SessionOption $sessionOption -ScriptBlock $scriptBlock -ErrorAction Stop | ForEach-Object {
+                                $listBoxOutput.Items.Add($_)
+                            }
+                            $diskQuotaInfo
                         } catch [System.Management.Automation.Remoting.PSRemotingTransportException] {
                             $errorMessage = $_.Exception.Message
                             $listBoxOutput.Items.Add("Не удалось подключиться к $selectedServer")
