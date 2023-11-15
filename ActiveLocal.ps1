@@ -1194,13 +1194,13 @@ loading $loadimg
 $companyAndCredentials = @{
     "РитейлЛогистикМосква" = @{
         "IP" = "46.148.233.28"
-        "Username" = "Administrator"
-        "Password" = "gOq7TuRgTTdn"
+        "Username" = "TechTST"
+        "Password" = "Tu787898-Fon"
     }
-    "РЛМСК2" = @{
-        "IP" = "46.148.233.22"
-        "Username" = "Administrator"
-        "Password" = "gOq7TuRgTTdn"
+    "ОкаЛогистик" = @{
+        "IP" = "84.38.188.135"
+        "Username" = "TechnicOka"
+        "Password" = "ZbBdNvf4Mj53C6jd@R"
     }
 }
 
